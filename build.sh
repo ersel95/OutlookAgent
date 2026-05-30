@@ -7,7 +7,17 @@ APP_NAME="OutlookAgent"
 APP_DISPLAY="Outlook Agent"
 BUNDLE_ID="com.ersel.outlookagent"
 
-echo "→ Swift derleniyor ($CONFIG)…"
+# Version stamping. Tag-driven CI sets VERSION="1.2.3"; local dev defaults to 0.0.0
+# so Sparkle always sees a higher number in the appcast (= updates fire correctly).
+VERSION="${VERSION:-0.0.0}"
+BUILD_NUMBER="${BUILD_NUMBER:-$VERSION}"
+
+# Sparkle config — public EdDSA key embedded in Info.plist. Private key lives in
+# GitHub Secrets (SPARKLE_ED_PRIVATE_KEY); see CLAUDE.md "Release" bölümü.
+SU_FEED_URL="${SU_FEED_URL:-https://raw.githubusercontent.com/ersel95/OutlookAgent/main/appcast.xml}"
+SU_PUBLIC_ED_KEY="${SU_PUBLIC_ED_KEY:-}"
+
+echo "→ Swift derleniyor ($CONFIG, v$VERSION)…"
 swift build -c "$CONFIG"
 
 BUILD_DIR=".build/$CONFIG"
@@ -25,7 +35,7 @@ APP_DIR="$INSTALL_DIR/$APP_NAME.app"
 CONTENTS="$APP_DIR/Contents"
 
 echo "→ .app bundle güncelleniyor: $APP_DIR"
-mkdir -p "$CONTENTS/MacOS" "$CONTENTS/Resources"
+mkdir -p "$CONTENTS/MacOS" "$CONTENTS/Resources" "$CONTENTS/Frameworks"
 
 # In-place replace executable only — keeps bundle inode + TCC mapping stable.
 cp "$BUILD_DIR/$APP_NAME" "$CONTENTS/MacOS/$APP_NAME.new"
@@ -38,6 +48,20 @@ rm -rf "$CONTENTS/Resources/${APP_NAME}_${APP_NAME}.bundle"
 # Resource bundle (contains AppleScript files for Bundle.module to find)
 if [ -d "$BUILD_DIR/${APP_NAME}_${APP_NAME}.bundle" ]; then
     cp -R "$BUILD_DIR/${APP_NAME}_${APP_NAME}.bundle" "$CONTENTS/Resources/"
+fi
+
+# Sparkle.framework embed. SPM çekiyor ama otomatik bundle'a koymuyor —
+# .build/artifacts altındaki XCFramework'ten macos slice'ı kopyalıyoruz.
+SPARKLE_SRC="$(find .build -type d -path '*/Sparkle.xcframework/*-arm64_x86_64/Sparkle.framework' -print -quit 2>/dev/null || true)"
+if [ -z "$SPARKLE_SRC" ]; then
+    SPARKLE_SRC="$(find .build -type d -name 'Sparkle.framework' -print -quit 2>/dev/null || true)"
+fi
+if [ -n "$SPARKLE_SRC" ] && [ -d "$SPARKLE_SRC" ]; then
+    echo "→ Sparkle.framework embed: $SPARKLE_SRC"
+    rm -rf "$CONTENTS/Frameworks/Sparkle.framework"
+    cp -R "$SPARKLE_SRC" "$CONTENTS/Frameworks/Sparkle.framework"
+else
+    echo "⚠️  Sparkle.framework bulunamadı — auto-update çalışmaz. 'swift package resolve' önce."
 fi
 
 # App icon (regenerate if missing)
@@ -75,9 +99,9 @@ cat > "$CONTENTS/Info.plist" <<PLIST
     <key>CFBundleIdentifier</key>
     <string>$BUNDLE_ID</string>
     <key>CFBundleVersion</key>
-    <string>1</string>
+    <string>$BUILD_NUMBER</string>
     <key>CFBundleShortVersionString</key>
-    <string>1.0</string>
+    <string>$VERSION</string>
     <key>CFBundlePackageType</key>
     <string>APPL</string>
     <key>CFBundleInfoDictionaryVersion</key>
@@ -96,25 +120,56 @@ cat > "$CONTENTS/Info.plist" <<PLIST
     <true/>
     <key>LSApplicationCategoryType</key>
     <string>public.app-category.productivity</string>
+    <key>SUFeedURL</key>
+    <string>$SU_FEED_URL</string>
+    <key>SUPublicEDKey</key>
+    <string>$SU_PUBLIC_ED_KEY</string>
+    <key>SUEnableAutomaticChecks</key>
+    <true/>
+    <key>SUAutomaticallyUpdate</key>
+    <false/>
+    <key>SUScheduledCheckInterval</key>
+    <integer>86400</integer>
 </dict>
 </plist>
 PLIST
+
+# Codesign. CI passes SIGNING_IDENTITY="Developer ID Application: ..." ve
+# Sparkle inside-out imzayı scripts/release.sh hallediyor — burada local ad-hoc.
+SIGN_ID="${SIGNING_IDENTITY:--}"
+TIMESTAMP_FLAG="--timestamp=none"
+if [ "$SIGN_ID" != "-" ]; then
+    TIMESTAMP_FLAG="--timestamp"
+fi
+
+# Local dev'de Sparkle.framework iç bileşenlerini de ad-hoc imzala — yoksa
+# Gatekeeper bundle'ı reddediyor ve "damaged" hatası veriyor.
+SPARKLE="$CONTENTS/Frameworks/Sparkle.framework"
+if [ -d "$SPARKLE" ] && [ "$SIGN_ID" = "-" ]; then
+    SPV="$SPARKLE/Versions/B"
+    for xpc in "$SPV/XPCServices/Installer.xpc" "$SPV/XPCServices/Downloader.xpc"; do
+        [ -e "$xpc" ] && codesign --force --sign - "$xpc" 2>/dev/null || true
+    done
+    [ -e "$SPV/Autoupdate" ] && codesign --force --sign - "$SPV/Autoupdate" 2>/dev/null || true
+    [ -e "$SPV/Updater.app" ] && codesign --force --sign - "$SPV/Updater.app" 2>/dev/null || true
+    codesign --force --sign - "$SPARKLE" 2>/dev/null || true
+fi
 
 # Stable ad-hoc signature + Hardened Runtime + entitlements.
 # Hardened Runtime + a stable identifier is what TCC needs to remember
 # permissions across launches without re-prompting every time.
 ENTITLEMENTS_FILE="entitlements.plist"
 if [ -f "$ENTITLEMENTS_FILE" ]; then
-    codesign --force --deep --sign - --identifier "$BUNDLE_ID" \
+    codesign --force --deep --sign "$SIGN_ID" --identifier "$BUNDLE_ID" \
         --options runtime \
         --entitlements "$ENTITLEMENTS_FILE" \
-        --timestamp=none \
+        $TIMESTAMP_FLAG \
         "$APP_DIR"
 else
-    codesign --force --deep --sign - --identifier "$BUNDLE_ID" "$APP_DIR"
+    codesign --force --deep --sign "$SIGN_ID" --identifier "$BUNDLE_ID" "$APP_DIR"
 fi
 
 # Strip Gatekeeper quarantine so macOS treats this as a known-by-the-user app.
 xattr -dr com.apple.quarantine "$APP_DIR" 2>/dev/null || true
 
-echo "✓ Bitti: $APP_DIR"
+echo "✓ Bitti: $APP_DIR (v$VERSION)"

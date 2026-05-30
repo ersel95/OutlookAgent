@@ -7,9 +7,17 @@ let package = Package(
     products: [
         .executable(name: "OutlookAgent", targets: ["OutlookAgent"])
     ],
+    dependencies: [
+        // Sparkle auto-update. Pulled via SPM; .framework is embedded + signed
+        // inside-out by build.sh (dev) / scripts/release.sh (CI).
+        .package(url: "https://github.com/sparkle-project/Sparkle.git", from: "2.9.0"),
+    ],
     targets: [
         .executableTarget(
             name: "OutlookAgent",
+            dependencies: [
+                .product(name: "Sparkle", package: "Sparkle"),
+            ],
             path: "Sources/OutlookAgent",
             resources: [.process("Scripts")]
         )

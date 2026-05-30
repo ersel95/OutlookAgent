@@ -3,6 +3,7 @@ import SwiftUI
 @main
 struct OutlookAgentApp: App {
     @State private var vm = AppViewModel()
+    @StateObject private var updater = UpdaterController()
 
     var body: some Scene {
         WindowGroup(AgoraContext.userEmail) {
@@ -17,6 +18,9 @@ struct OutlookAgentApp: App {
         .windowResizability(.contentSize)
         .commands {
             CommandGroup(replacing: .newItem) { }
+            CommandGroup(after: .appInfo) {
+                CheckForUpdatesView(updater: updater.controller.updater)
+            }
             CommandMenu("Agent") {
                 Button("Inbox'ı Yenile") {
                     Task { await vm.refreshInbox() }

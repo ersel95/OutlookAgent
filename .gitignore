@@ -18,3 +18,9 @@ xcuserdata/
 # Lokal runtime data (uygulama bunlari ~/Library/Application Support altinda tutar;
 # repo icindeki data/ ornek/ihrac dosyalari icin acik birakildi)
 *.log
+
+# Release artefactleri
+dist/
+sparkle-tools/
+sparkle.tar.xz
+OutlookAgent.app/

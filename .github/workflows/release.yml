@@ -1,0 +1,104 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select Xcode
+        run: sudo xcode-select -s /Applications/Xcode.app
+
+      - name: Resolve version
+        id: ver
+        run: echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+
+      - name: Import Developer ID certificate
+        env:
+          CERT_P12_BASE64: ${{ secrets.DEVELOPER_ID_CERT_P12_BASE64 }}
+          CERT_PASSWORD: ${{ secrets.DEVELOPER_ID_CERT_PASSWORD }}
+        run: |
+          KEYCHAIN="$RUNNER_TEMP/build.keychain-db"
+          KEYCHAIN_PWD="$(openssl rand -base64 24)"
+          security create-keychain -p "$KEYCHAIN_PWD" "$KEYCHAIN"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN"
+          security unlock-keychain -p "$KEYCHAIN_PWD" "$KEYCHAIN"
+          echo "$CERT_P12_BASE64" | base64 --decode > "$RUNNER_TEMP/cert.p12"
+          security import "$RUNNER_TEMP/cert.p12" -k "$KEYCHAIN" -P "$CERT_PASSWORD" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple: -s -k "$KEYCHAIN_PWD" "$KEYCHAIN" >/dev/null
+          security list-keychains -d user -s "$KEYCHAIN" $(security list-keychains -d user | tr -d '"')
+          rm -f "$RUNNER_TEMP/cert.p12"
+
+      - name: Write App Store Connect API key
+        env:
+          ASC_KEY_P8_BASE64: ${{ secrets.ASC_KEY_P8_BASE64 }}
+        run: echo "$ASC_KEY_P8_BASE64" | base64 --decode > "$RUNNER_TEMP/asc.p8"
+
+      - name: Build, sign & notarize DMG
+        env:
+          SIGNING_IDENTITY: ${{ secrets.SIGNING_IDENTITY }}
+          ASC_KEY_PATH: ${{ runner.temp }}/asc.p8
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          SU_PUBLIC_ED_KEY: ${{ secrets.SU_PUBLIC_ED_KEY }}
+        run: scripts/release.sh "${{ steps.ver.outputs.version }}"
+
+      - name: Compute checksum
+        id: sum
+        run: |
+          DMG="dist/OutlookAgent-${{ steps.ver.outputs.version }}.dmg"
+          echo "sha256=$(shasum -a 256 "$DMG" | awk '{print $1}')" >> "$GITHUB_OUTPUT"
+
+      - name: Sign DMG for Sparkle (EdDSA)
+        id: sparkle
+        env:
+          SPARKLE_ED_PRIVATE_KEY: ${{ secrets.SPARKLE_ED_PRIVATE_KEY }}
+        run: |
+          VERSION="${{ steps.ver.outputs.version }}"
+          DMG="dist/OutlookAgent-$VERSION.dmg"
+          curl -fsSL -o sparkle.tar.xz \
+            https://github.com/sparkle-project/Sparkle/releases/download/2.9.2/Sparkle-2.9.2.tar.xz
+          mkdir -p sparkle-tools && tar -xf sparkle.tar.xz -C sparkle-tools
+          # Key'i dosyadan ver (-s flag deprecated, hata veriyor).
+          KEYFILE="$RUNNER_TEMP/sparkle_ed_key"
+          printf '%s' "$SPARKLE_ED_PRIVATE_KEY" > "$KEYFILE"
+          OUT="$(sparkle-tools/bin/sign_update "$DMG" --ed-key-file "$KEYFILE")"
+          rm -f "$KEYFILE"
+          SIG="$(printf '%s' "$OUT" | sed -E 's/.*edSignature="([^"]+)".*/\1/')"
+          LEN="$(printf '%s' "$OUT" | sed -E 's/.*length="([^"]+)".*/\1/')"
+          {
+            echo "signature=$SIG"
+            echo "length=$LEN"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Update Sparkle appcast
+        run: |
+          VERSION="${{ steps.ver.outputs.version }}"
+          SIG="${{ steps.sparkle.outputs.signature }}"
+          LEN="${{ steps.sparkle.outputs.length }}"
+          DMG_URL="https://github.com/${{ github.repository }}/releases/download/v$VERSION/OutlookAgent-$VERSION.dmg"
+          # Tag detached checkout — appcast'i main'e commit'leyebilmek için
+          # main'e geç. Bu, app'in poll ettiği feed.
+          git fetch origin main
+          git checkout main
+          python3 scripts/update_appcast.py \
+            --version "$VERSION" --url "$DMG_URL" --length "$LEN" --signature "$SIG" \
+            --notes-url "https://github.com/${{ github.repository }}/releases/tag/v$VERSION"
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add appcast.xml
+          git commit -m "chore: release $VERSION (appcast)" && git push origin main || echo "no change"
+
+      - name: Create release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/OutlookAgent-${{ steps.ver.outputs.version }}.dmg
+          generate_release_notes: true

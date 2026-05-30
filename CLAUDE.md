@@ -84,6 +84,43 @@ open /Applications/OutlookAgent.app            # gerçek Outlook ile manuel doğ
 
 UI/davranış doğrulaması elle yapılır — değişiklik sonrası ⌘1/2/3 ile her feature'ı dolaş, "Yenile" → liste güncel, mail/görev/etkinlik seçimi → detay paneli akıyor mu kontrol et.
 
+## Release & otomatik güncelleme (Sparkle)
+
+`v1.2.3` formunda tag push → `.github/workflows/release.yml` tetiklenir → DMG build + Developer ID sign + Apple notarization + EdDSA imza + `appcast.xml`'e item insert + GitHub Release. App çalışırken `SUFeedURL` (raw `appcast.xml`) launch'ta ve günlük (`SUScheduledCheckInterval=86400`) poll eder, yeni sürüm bulursa kullanıcıya sorar (`SUAutomaticallyUpdate=false`).
+
+### İlk kurulum (tek seferlik)
+
+1. **EdDSA key pair üret** (Sparkle 2.9.2):
+   ```bash
+   curl -fsSL https://github.com/sparkle-project/Sparkle/releases/download/2.9.2/Sparkle-2.9.2.tar.xz | tar -xJ -C /tmp
+   /tmp/bin/generate_keys
+   ```
+   Public key → GitHub secret `SU_PUBLIC_ED_KEY`, private key → GitHub secret `SPARKLE_ED_PRIVATE_KEY`. (Private key'i lokal Keychain'de de saklar — kaybedersen yeni public key ile tüm kullanıcılar update almaz.)
+
+2. **GitHub Secrets** (Settings → Secrets and variables → Actions):
+   - `DEVELOPER_ID_CERT_P12_BASE64` — Keychain Access'tan "Developer ID Application" sertifikası export .p12 → `base64 -i cert.p12`
+   - `DEVELOPER_ID_CERT_PASSWORD` — yukarıdaki .p12'nin parolası
+   - `SIGNING_IDENTITY` — tam string: `Developer ID Application: Adın Soyadın (TEAMID)`
+   - `ASC_KEY_P8_BASE64` — App Store Connect API key (.p8) base64
+   - `ASC_KEY_ID` — ASC API Key ID (10 char)
+   - `ASC_ISSUER_ID` — ASC Issuer ID (UUID)
+   - `SU_PUBLIC_ED_KEY` — yukarıda üretilen Sparkle public key (base64)
+   - `SPARKLE_ED_PRIVATE_KEY` — yukarıda üretilen Sparkle private key
+
+### Release süreci
+
+```bash
+git tag v1.0.1 && git push origin v1.0.1
+# CI: build → sign → notarize → DMG → notarize DMG → sign_update (EdDSA)
+#     → appcast.xml'e item push (main) → gh release create
+```
+
+CI bittiğinde `https://github.com/ersel95/OutlookAgent/releases/download/v1.0.1/OutlookAgent-1.0.1.dmg` indirilebilir, ve eski kurulumlar Sparkle ile otomatik upgrade'i görür.
+
+### Lokal dev
+
+`./build.sh` ad-hoc imza (`-`) ile çalışır; Sparkle.framework `.build/`'den `Contents/Frameworks/`'e kopyalanır ve iç bileşenler ad-hoc imzalanır. Auto-update lokal dev'de `SUFeedURL` raw GitHub'a baktığı için yine de çalışır (ama yeni release'leri lokal değişiklikler aşmaz — `VERSION` env ile override edilebilir: `VERSION=0.0.0 ./build.sh`).
+
 ## Stil
 
 - Türkçe yazışıyoruz; teknik terimler / identifier'lar İngilizce kalır.
