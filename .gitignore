@@ -1,0 +1,20 @@
+# macOS
+.DS_Store
+Icon
+Icon?
+
+# Swift / SPM build artefactleri
+.build/
+.swiftpm/
+Packages/
+Package.resolved
+*.xcodeproj
+DerivedData/
+
+# Xcode user data
+xcuserdata/
+*.xcuserstate
+
+# Lokal runtime data (uygulama bunlari ~/Library/Application Support altinda tutar;
+# repo icindeki data/ ornek/ihrac dosyalari icin acik birakildi)
+*.log

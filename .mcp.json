@@ -1,0 +1,16 @@
+{
+  "mcpServers": {
+    "salesforce": {
+      "command": "/Users/ersel/.nvm/versions/node/v22.14.0/bin/sf-mcp-server",
+      "args": [
+        "--orgs",
+        "agora",
+        "--toolsets",
+        "data,orgs"
+      ],
+      "env": {
+        "PATH": "/Users/ersel/.nvm/versions/node/v22.14.0/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin"
+      }
+    }
+  }
+}
