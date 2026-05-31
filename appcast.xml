@@ -6,12 +6,12 @@
     <description>OutlookAgent updates</description>
     <item>
       <title>OutlookAgent 0.2.1</title>
-      <pubDate>Sun, 31 May 2026 14:08:31 +0000</pubDate>
+      <pubDate>Sun, 31 May 2026 14:08:47 +0000</pubDate>
       <sparkle:version>0.2.1</sparkle:version>
       <sparkle:shortVersionString>0.2.1</sparkle:shortVersionString>
       <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
       <sparkle:releaseNotesLink>https://github.com/ersel95/OutlookAgent/releases/tag/v0.2.1</sparkle:releaseNotesLink>
-      <enclosure url="https://github.com/ersel95/OutlookAgent/releases/download/v0.2.1/OutlookAgent-0.2.1.dmg" length="3429226" type="application/octet-stream" sparkle:edSignature="gcCpF9G2JOveU5iIIrluGPS4ltine56PVvYV0K23Z1bHBbWXhvMC982kdt/CNan4KDGGhB2NIcloaLsYZNdaDQ==" />
+      <enclosure url="https://github.com/ersel95/OutlookAgent/releases/download/v0.2.1/OutlookAgent-0.2.1.dmg" length="3429138" type="application/octet-stream" sparkle:edSignature="RNo8Om+kgBM2bXrrhNOUe7JK+cnU8o50rpPjBY3fMnjWgB/eXKeWMCHMRIt3zGZygOotMGuk59tXSbh7yM5jCQ==" />
     </item>
     <item>
       <title>OutlookAgent 0.2.0</title>
