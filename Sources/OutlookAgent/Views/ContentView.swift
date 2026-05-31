@@ -7,13 +7,13 @@ struct InboxFeatureView: View {
     var body: some View {
         NavigationSplitView {
             InboxView()
-                .navigationSplitViewColumnWidth(min: 320, ideal: 380, max: 480)
+                .navigationSplitViewColumnWidth(min: 280, ideal: 360, max: 480)
         } content: {
             ThreadFeatureView()
-                .navigationSplitViewColumnWidth(min: 420, ideal: 520)
+                .navigationSplitViewColumnWidth(min: 360, ideal: 500)
         } detail: {
             RightPanelView()
-                .navigationSplitViewColumnWidth(min: 360, ideal: 420)
+                .navigationSplitViewColumnWidth(min: 280, ideal: 400)
         }
         .toolbar { InboxToolbar() }
     }

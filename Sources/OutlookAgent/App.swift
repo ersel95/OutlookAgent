@@ -11,7 +11,7 @@ struct OutlookAgentApp: App {
         WindowGroup(AgoraContext.userEmail) {
             RootView()
                 .environment(vm)
-                .frame(minWidth: 1240, minHeight: 760)
+                .frame(minWidth: 1100, minHeight: 700)
                 .task {
                     // Onboarding kontrolu: config.json yoksa veya aktif provider
                     // misconfigured ise modal sheet ac. Inbox/calendar refresh'i
@@ -26,7 +26,9 @@ struct OutlookAgentApp: App {
                     OnboardingSheet()
                 }
         }
-        .windowResizability(.contentSize)
+        // contentMinSize: content'in min frame'i window'un min'i olur (kullanici
+        // daha kucuk yapamaz). contentSize "auto-fit" demek, resize ENFORCE etmez.
+        .windowResizability(.contentMinSize)
         .commands {
             CommandGroup(replacing: .newItem) { }
             CommandGroup(after: .appInfo) {

@@ -7,7 +7,7 @@ struct RootView: View {
         @Bindable var vm = vm
         HStack(spacing: 0) {
             FeatureSidebar()
-                .frame(width: 200)
+                .frame(minWidth: 180, idealWidth: 200, maxWidth: 220)
                 .background(.regularMaterial)
             Divider()
             Group {
