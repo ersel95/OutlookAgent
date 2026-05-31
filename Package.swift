@@ -21,5 +21,6 @@ let package = Package(
             path: "Sources/OutlookAgent",
             resources: [.process("Scripts")]
         )
-    ]
+    ],
+    swiftLanguageVersions: [.v5]
 )
