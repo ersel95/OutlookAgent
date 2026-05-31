@@ -1,52 +1,21 @@
 import Foundation
 
 enum ClaudeError: LocalizedError {
-    case binaryMissing
-    case nonZeroExit(String)
-    case emptyResult
     case jsonExtractionFailed(String)
 
     var errorDescription: String? {
         switch self {
-        case .binaryMissing:           return "claude CLI bulunamadı (PATH'te değil)."
-        case .nonZeroExit(let m):      return "claude hata verdi: \(m)"
-        case .emptyResult:             return "claude boş sonuç döndürdü."
         case .jsonExtractionFailed(let s): return "Yanıt JSON olarak çözümlenemedi: \(s)"
         }
     }
 }
 
-/// `final class` — actor DEĞİL. Subprocess çağrıları paralel çalışabilsin diye.
-/// Shared mutable state yok (binaryURL/cacheWorkingDir immutable), thread-safe.
-/// Actor olarak kalsaydı `autoTriage` 10 batch sıraya girince `discoverProspects`
-/// o kuyruğun arkasında 5+ dakika bekleyebilirdi.
+/// AI saglayicisi-agnostic high-level facade. Aktif provider AIConfigStore'dan
+/// resolve edilir. `final class` — actor DEGIL: complete cagrilari paralel
+/// calisabilsin diye. AIConfigStore.shared MainActor; provider lookup'i her
+/// cagrida MainActor.run ile yapilir.
 final class ClaudeService: @unchecked Sendable {
     static let shared = ClaudeService()
-
-    /// Subprocess working directory pinned away from user folders to avoid
-    /// triggering TCC prompts (Photos / Documents / Desktop).
-    private static let cacheWorkingDir: URL = {
-        let fm = FileManager.default
-        let base = fm.urls(for: .cachesDirectory, in: .userDomainMask).first
-            ?? fm.temporaryDirectory
-        let dir = base.appendingPathComponent("OutlookAgent", isDirectory: true)
-        try? fm.createDirectory(at: dir, withIntermediateDirectories: true)
-        return dir
-    }()
-
-    private let binaryURL: URL? = {
-        let candidates = [
-            "/opt/homebrew/bin/claude",
-            "/usr/local/bin/claude",
-            "/usr/bin/claude"
-        ]
-        for c in candidates {
-            if FileManager.default.isExecutableFile(atPath: c) {
-                return URL(fileURLWithPath: c)
-            }
-        }
-        return nil
-    }()
 
     // MARK: - Public API
 
@@ -256,147 +225,43 @@ final class ClaudeService: @unchecked Sendable {
         return raw.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
-    // MARK: - Subprocess
+    // MARK: - Provider dispatch
 
-    /// `tools` boş bırakılırsa default `claude -p` çalışır (read-only chat).
-    /// `["WebSearch","WebFetch"]` gibi araçlar geçilirse `--allowedTools` +
-    /// `--permission-mode bypassPermissions` ile subprocess'e izin verilir.
-    /// `timeoutSec` saniyeden uzun çalışan subprocess SIGTERM/SIGKILL ile
-    /// sonlandırılır — Anthropic API hang ya da retry-loop güvenliği.
-    /// Pipe okuma async readabilityHandler ile yapılır → buffer dolduğunda
-    /// subprocess block etmez.
+    /// `tools` parametresi sadece Claude CLI provider tarafından kullanilir
+    /// (--allowedTools); diger provider'lar (API, Ollama) ignore eder. Aktif
+    /// provider AIConfigStore'dan resolve edilir.
     func runClaude(prompt: String,
                    tools: [String] = [],
                    timeoutSec: TimeInterval = 120,
                    traceId: UUID? = nil) async throws -> String {
-        guard let bin = binaryURL else {
-            AppLogger.bg(.error, .claudeSubprocess, "claude binary bulunamadı", traceId: traceId)
-            throw ClaudeError.binaryMissing
-        }
-        let proc = Process()
-        proc.executableURL = bin
-        var args = ["-p", prompt, "--output-format", "json"]
-        if !tools.isEmpty {
-            args.append("--allowedTools")
-            args.append(tools.joined(separator: ","))
-            args.append("--permission-mode")
-            args.append("bypassPermissions")
-        }
-        proc.arguments = args
-        proc.currentDirectoryURL = Self.cacheWorkingDir
-
-        let stdout = Pipe()
-        let stderr = Pipe()
-        proc.standardOutput = stdout
-        proc.standardError = stderr
-        if let nullFH = FileHandle(forReadingAtPath: "/dev/null") {
-            proc.standardInput = nullFH
-        }
-
-        let outCollector = SubprocessDataCollector()
-        let errCollector = SubprocessDataCollector()
-        stdout.fileHandleForReading.readabilityHandler = { h in
-            let chunk = h.availableData
-            if !chunk.isEmpty { Task.detached { await outCollector.append(chunk) } }
-        }
-        stderr.fileHandleForReading.readabilityHandler = { h in
-            let chunk = h.availableData
-            if !chunk.isEmpty { Task.detached { await errCollector.append(chunk) } }
-        }
-
-        let startTime = Date()
-        let promptPreview = String(prompt.prefix(160))
-            .replacingOccurrences(of: "\n", with: " ⏎ ")
-
-        AppLogger.bg(.info, .claudeSubprocess, "subprocess başlatılıyor", [
-            "promptSize":  .int(prompt.count),
-            "tools":       .string(tools.isEmpty ? "(none)" : tools.joined(separator: ",")),
-            "timeoutSec":  .int(Int(timeoutSec)),
-            "promptHead":  .string(promptPreview)
-        ], traceId: traceId)
-
-        try proc.run()
-        let pid = proc.processIdentifier
-
-        let timedOut = SubprocessFlag()
-        let watchdog = Task.detached(priority: .background) {
-            try? await Task.sleep(nanoseconds: UInt64(timeoutSec * 1_000_000_000))
-            if proc.isRunning {
-                await timedOut.set()
-                AppLogger.bg(.warn, .claudeSubprocess, "watchdog: timeout — terminate gönderildi", [
-                    "pid": .int(Int(pid)),
-                    "timeoutSec": .int(Int(timeoutSec))
-                ], traceId: traceId)
-                proc.terminate()
-                try? await Task.sleep(nanoseconds: 2_000_000_000)
-                if proc.isRunning {
-                    AppLogger.bg(.warn, .claudeSubprocess, "watchdog: SIGKILL", traceId: traceId)
-                    kill(pid, SIGKILL)
-                }
-            }
-        }
-
-        proc.waitUntilExit()
-        watchdog.cancel()
-
-        stdout.fileHandleForReading.readabilityHandler = nil
-        stderr.fileHandleForReading.readabilityHandler = nil
-        let tailOut = stdout.fileHandleForReading.availableData
-        if !tailOut.isEmpty { await outCollector.append(tailOut) }
-        let tailErr = stderr.fileHandleForReading.availableData
-        if !tailErr.isEmpty { await errCollector.append(tailErr) }
-
-        let elapsedMs = Int(Date().timeIntervalSince(startTime) * 1000)
-        let outData = await outCollector.data
-        let errData = await errCollector.data
-        let errPreview = String((String(data: errData, encoding: .utf8) ?? "").prefix(240))
-
-        if await timedOut.value {
-            AppLogger.bg(.error, .claudeSubprocess, "subprocess timeout", [
-                "elapsedMs":   .int(elapsedMs),
-                "stdoutBytes": .int(outData.count),
-                "stderrHead":  .string(errPreview)
-            ], traceId: traceId)
-            throw ClaudeError.nonZeroExit("subprocess timeout — \(Int(timeoutSec))sn aşıldı")
-        }
-
-        if proc.terminationStatus != 0 {
-            AppLogger.bg(.error, .claudeSubprocess, "subprocess non-zero exit", [
-                "exitCode":   .int(Int(proc.terminationStatus)),
-                "elapsedMs":  .int(elapsedMs),
-                "stderrHead": .string(errPreview)
-            ], traceId: traceId)
-            let msg = String(data: errData, encoding: .utf8) ?? "?"
-            throw ClaudeError.nonZeroExit(msg)
-        }
-
-        // Anthropic CLI metadata'sını da log'a yansıt (duration_api_ms, num_turns).
-        var apiDurationMs: Int? = nil
-        var numTurns: Int? = nil
-        var resultLen: Int = 0
-        if let outJSON = try? JSONSerialization.jsonObject(with: outData) as? [String: Any] {
-            apiDurationMs = outJSON["duration_api_ms"] as? Int
-            numTurns = outJSON["num_turns"] as? Int
-            resultLen = (outJSON["result"] as? String)?.count ?? 0
-        }
-
-        AppLogger.bg(.info, .claudeSubprocess, "subprocess başarılı", [
-            "elapsedMs":     .int(elapsedMs),
-            "apiDurationMs": .int(apiDurationMs ?? 0),
-            "numTurns":      .int(numTurns ?? 0),
-            "resultBytes":   .int(resultLen),
-            "stdoutBytes":   .int(outData.count)
-        ], traceId: traceId)
-
-        guard let outJSON = try JSONSerialization.jsonObject(with: outData) as? [String: Any],
-              let result = outJSON["result"] as? String, !result.isEmpty else {
-            AppLogger.bg(.error, .claudeSubprocess, "result alanı yok / boş", [
-                "stdoutBytes": .int(outData.count)
-            ], traceId: traceId)
-            throw ClaudeError.emptyResult
-        }
-        return result
+        let provider = await Self.resolveProvider()
+        let options = AIOptions(tools: tools, timeoutSec: timeoutSec, traceId: traceId)
+        return try await provider.complete(prompt: prompt, options: options)
     }
+
+    /// Aktif provider'i ConfigStore'dan resolve eder. MainActor isolation.
+    @MainActor
+    private static func resolveProvider() -> AIProvider {
+        let cfg = AIConfigStore.shared.config
+        switch cfg.activeProvider {
+        case .claudeCLI:
+            return ClaudeCLIProvider(configuredPath: cfg.claudeCLI.binaryPath)
+        case .anthropicAPI:
+            return AnthropicAPIProvider(
+                model: cfg.anthropicAPI.model,
+                apiKey: KeychainHelper.get(AISecretKey.anthropicAPIKey) ?? ""
+            )
+        case .openAI:
+            return OpenAIProvider(
+                model: cfg.openAI.model,
+                baseURL: cfg.openAI.baseURL,
+                apiKey: KeychainHelper.get(AISecretKey.openAIAPIKey) ?? ""
+            )
+        case .ollama:
+            return OllamaProvider(model: cfg.ollama.model, baseURL: cfg.ollama.baseURL)
+        }
+    }
+
 
     // MARK: - Prompt Builders
 

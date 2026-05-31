@@ -4,6 +4,8 @@ import SwiftUI
 struct OutlookAgentApp: App {
     @State private var vm = AppViewModel()
     @StateObject private var updater = UpdaterController()
+    @StateObject private var aiConfig = AIConfigStore.shared
+    @State private var showOnboarding = false
 
     var body: some Scene {
         WindowGroup(AgoraContext.userEmail) {
@@ -11,8 +13,17 @@ struct OutlookAgentApp: App {
                 .environment(vm)
                 .frame(minWidth: 1240, minHeight: 760)
                 .task {
+                    // Onboarding kontrolu: config.json yoksa veya aktif provider
+                    // misconfigured ise modal sheet ac. Inbox/calendar refresh'i
+                    // onboarding bitene kadar bekleme (kullanici Skip'e basabilir).
+                    if !aiConfig.isActiveProviderConfigured {
+                        showOnboarding = true
+                    }
                     await vm.refreshInbox()
                     await vm.refreshCalendar()
+                }
+                .sheet(isPresented: $showOnboarding) {
+                    OnboardingSheet()
                 }
         }
         .windowResizability(.contentSize)
@@ -45,6 +56,11 @@ struct OutlookAgentApp: App {
                     vm.currentFeature = .logs
                 }.keyboardShortcut("5")
             }
+        }
+
+        // macOS native Settings scene (⌘,)
+        Settings {
+            SettingsView()
         }
     }
 }
