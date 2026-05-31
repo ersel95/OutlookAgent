@@ -15,7 +15,9 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Select Xcode
-        run: sudo xcode-select -s /Applications/Xcode.app
+        # Xcode 16 default'ta Swift 6 strict concurrency errors uretiyor; mevcut
+        # code base Swift 5.x. macos-14 runner'da Xcode 15.4 her zaman var.
+        run: sudo xcode-select -s /Applications/Xcode_15.4.app
 
       - name: Resolve version
         id: ver
