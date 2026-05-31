@@ -24,16 +24,19 @@ private struct InboxToolbar: ToolbarContent {
 
     var body: some ToolbarContent {
         ToolbarItemGroup(placement: .primaryAction) {
-            Picker("Mail sayısı", selection: Binding(
-                get: { vm.inboxLimit },
-                set: { v in vm.inboxLimit = v; Task { await vm.refreshInbox() } }
-            )) {
-                Text("20").tag(20)
-                Text("30").tag(30)
-                Text("50").tag(50)
-                Text("100").tag(100)
+            // Toolbar'da .pickerStyle(.menu) label'i light mode'da render etmiyor
+            // (sadece chevron gozukuyor) — Menu + explicit Label ile sariyoruz.
+            Menu {
+                ForEach([20, 30, 50, 100], id: \.self) { n in
+                    Button("\(n) mail") {
+                        vm.inboxLimit = n
+                        Task { await vm.refreshInbox() }
+                    }
+                }
+            } label: {
+                Label("\(vm.inboxLimit)", systemImage: "tray.full")
             }
-            .pickerStyle(.menu)
+            .help("Inbox'tan kac mail cekilecegi")
 
             Button {
                 Task { await vm.refreshInbox() }
