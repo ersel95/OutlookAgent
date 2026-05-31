@@ -28,6 +28,11 @@ struct CalendarEvent: Identifiable, Codable, Hashable {
     var pipelineConfidence: Double?
     var primaryDomain: String?       // e.g. "acme.com" — main customer domain among attendees
 
+    // Owning Outlook account (best-effort; bazı calendar'lar account ile
+    // direkt ilişkilendirilemez — o durumda nil).
+    var accountId: String? = nil
+    var accountName: String? = nil
+
     struct Attendee: Codable, Hashable, Identifiable {
         var name: String
         var email: String

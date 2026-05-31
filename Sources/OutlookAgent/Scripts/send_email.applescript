@@ -1,14 +1,18 @@
--- send_email.applescript SUBJECT_FILE BODY_FILE TO_LIST [CC_LIST]
+-- send_email.applescript SUBJECT_FILE BODY_FILE TO_LIST [CC_LIST] [FROM_ACCOUNT_ID]
 -- Creates a NEW outgoing message (fresh — not a reply) and sends it immediately
 -- via Outlook for Mac (Classic). TO_LIST and CC_LIST are semicolon-separated
--- email addresses. Returns the Outlook message id on success.
+-- email addresses. FROM_ACCOUNT_ID belirtilirse outgoing message'in account
+-- property'si o account'a set'lenir (multi-account "send as" desteği).
+-- Returns the Outlook message id on success.
 on run argv
-	if (count of argv) < 3 then error "usage: SUBJECT_FILE BODY_FILE TO_LIST [CC_LIST]"
+	if (count of argv) < 3 then error "usage: SUBJECT_FILE BODY_FILE TO_LIST [CC_LIST] [FROM_ACCOUNT_ID]"
 	set subjFile to (item 1 of argv) as string
 	set bodyFile to (item 2 of argv) as string
 	set toListRaw to (item 3 of argv) as string
 	set ccListRaw to ""
 	if (count of argv) ≥ 4 then set ccListRaw to ((item 4 of argv) as string)
+	set fromAcctId to ""
+	if (count of argv) ≥ 5 then set fromAcctId to ((item 5 of argv) as string)
 
 	set subjText to do shell script "/bin/cat " & quoted form of subjFile
 	set bodyText to do shell script "/bin/cat " & quoted form of bodyFile
@@ -18,7 +22,29 @@ on run argv
 	if (count of toAddrs) is 0 then error "send_email: en az bir alıcı gerekli"
 
 	tell application "Microsoft Outlook"
-		set newMsg to make new outgoing message with properties {subject:subjText, plain text content:bodyText}
+		-- FROM_ACCOUNT_ID verilmişse uygun account'u çöz; bulunamazsa default
+		set acctRef to missing value
+		if fromAcctId is not "" then
+			try
+				set acctRef to first exchange account whose id is (fromAcctId as integer)
+			end try
+			if acctRef is missing value then
+				try
+					set acctRef to first imap account whose id is (fromAcctId as integer)
+				end try
+			end if
+			if acctRef is missing value then
+				try
+					set acctRef to first pop account whose id is (fromAcctId as integer)
+				end try
+			end if
+		end if
+
+		if acctRef is missing value then
+			set newMsg to make new outgoing message with properties {subject:subjText, plain text content:bodyText}
+		else
+			set newMsg to make new outgoing message with properties {subject:subjText, plain text content:bodyText, account:acctRef}
+		end if
 
 		repeat with addr in toAddrs
 			set a to (addr as string)

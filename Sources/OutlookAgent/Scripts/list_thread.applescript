@@ -138,7 +138,21 @@ on emit(m, fname, fs)
 
 		set imgPaths to my dumpImageAttachments(m, mId)
 
-		return mId & fs & fname & fs & d & fs & fromName & fs & fromAddr & fs & toList & fs & ccList & fs & subj & fs & body & fs & isRead & fs & hasAttach & fs & attachNames & fs & imgPaths
+		set mAcctId to ""
+		set mAcctName to ""
+		try
+			set mAcct to account of m
+			try
+				set mAcctId to (id of mAcct) as string
+			end try
+			try
+				set mAcctName to (name of mAcct) as string
+			end try
+		end try
+		set mAcctName to my zap(mAcctName, rsChar, " ")
+		set mAcctName to my zap(mAcctName, fs, " ")
+
+		return mId & fs & fname & fs & d & fs & fromName & fs & fromAddr & fs & toList & fs & ccList & fs & subj & fs & body & fs & isRead & fs & hasAttach & fs & attachNames & fs & imgPaths & fs & mAcctId & fs & mAcctName
 	end tell
 end emit
 

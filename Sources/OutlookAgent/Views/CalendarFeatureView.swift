@@ -65,6 +65,28 @@ private struct CalendarSidebar: View {
                 Toggle("Geçmiş toplantıları gizle", isOn: $vm.calendarHidePast)
             }
 
+            if vm.accountStore.enabledAccounts.count > 1 {
+                Section("Hesap") {
+                    FilterRowCal(label: "Tümü",
+                                 count: vm.calendarStore.combinedFeed.count,
+                                 accent: .secondary,
+                                 isOn: vm.accountFilter == nil) {
+                        Task { await vm.setAccountFilter(nil) }
+                    }
+                    ForEach(vm.accountStore.enabledAccounts) { acc in
+                        let isOn = vm.accountFilter == acc.id
+                        let count = vm.calendarStore.combinedFeed.filter { ($0.accountId ?? "") == acc.id }.count
+                        FilterRowCal(label: acc.displayName,
+                                     count: count,
+                                     accent: acc.color,
+                                     isOn: isOn) {
+                            let next: String? = isOn ? nil : acc.id
+                            Task { await vm.setAccountFilter(next) }
+                        }
+                    }
+                }
+            }
+
             Section("Pipeline") {
                 FilterRowCal(label: "Tümü",
                              count: vm.visibleEvents.count,

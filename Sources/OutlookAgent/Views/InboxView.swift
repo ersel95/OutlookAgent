@@ -6,6 +6,12 @@ struct InboxView: View {
 
     var body: some View {
         VStack(spacing: 0) {
+            // Multi-account aktifse hesap chip satırı; tek hesap varsa gizle.
+            if vm.accountStore.enabledAccounts.count > 1 {
+                AccountFilterBar()
+                    .padding(.horizontal, 12).padding(.top, 8).padding(.bottom, 4)
+                    .background(.thinMaterial)
+            }
             CategoryFilterBar()
                 .padding(.horizontal, 12).padding(.vertical, 8)
                 .background(.thinMaterial)
@@ -72,6 +78,65 @@ struct InboxView: View {
         } message: {
             Text("Mail Outlook'un Deleted Items klasörüne taşınır. Outlook üzerinden geri alabilirsin.")
         }
+    }
+}
+
+/// Multi-account inbox için hesap filter chip satırı. nil filter = "Tüm hesaplar".
+struct AccountFilterBar: View {
+    @Environment(AppViewModel.self) private var vm
+
+    var body: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 6) {
+                allAccountsChip
+                ForEach(vm.accountStore.enabledAccounts) { acc in
+                    accountChip(for: acc)
+                }
+            }
+        }
+    }
+
+    private var allAccountsChip: some View {
+        AccountChip(label: "Tümü",
+                    color: .secondary,
+                    isOn: vm.accountFilter == nil) {
+            Task { await vm.setAccountFilter(nil) }
+        }
+    }
+
+    private func accountChip(for acc: MailAccount) -> some View {
+        let isOn = vm.accountFilter == acc.id
+        return AccountChip(label: acc.displayName, color: acc.color, isOn: isOn) {
+            let next: String? = isOn ? nil : acc.id
+            Task { await vm.setAccountFilter(next) }
+        }
+    }
+}
+
+struct AccountChip: View {
+    let label: String
+    let color: Color
+    let isOn: Bool
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 5) {
+                Circle().fill(color).frame(width: 8, height: 8)
+                Text(label)
+                    .font(.caption.weight(.medium))
+                    .lineLimit(1)
+            }
+            .padding(.horizontal, 10).padding(.vertical, 4)
+            .background(
+                Capsule().fill(isOn ? color.opacity(0.25) : Color.clear)
+            )
+            .overlay(
+                Capsule().strokeBorder(color.opacity(isOn ? 0.7 : 0.3), lineWidth: 1)
+            )
+            .foregroundStyle(isOn ? color : .secondary)
+        }
+        .buttonStyle(.plain)
     }
 }
 

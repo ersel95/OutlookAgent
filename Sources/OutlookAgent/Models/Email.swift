@@ -9,6 +9,10 @@ struct EmailSummary: Identifiable, Hashable, Codable {
     var subject: String
     var preview: String
     var hasAttachments: Bool
+    /// Outlook account id (string). Multi-account inbox iterate edildiğinde
+    /// her mail hangi hesabın inbox'ından geldiyse onu taşır.
+    var accountId: String? = nil
+    var accountName: String? = nil
 
     var displaySender: String {
         fromName.isEmpty ? fromAddress : fromName
@@ -29,6 +33,8 @@ struct EmailFull: Identifiable, Hashable, Codable {
     var attachmentNames: [String]
     var conversationId: String?
     var attachmentPaths: [String: String] = [:]   // filename → cached local path
+    var accountId: String? = nil
+    var accountName: String? = nil
 }
 
 /// Single message inside a conversation thread.
@@ -47,6 +53,8 @@ struct ThreadMessage: Identifiable, Hashable, Codable {
     var hasAttachments: Bool
     var attachmentNames: [String]
     var attachmentPaths: [String: String] = [:]   // filename → cached local path (image attachments)
+    var accountId: String? = nil
+    var accountName: String? = nil
 
     /// Treat as "outgoing" (your message) when folder is sent or you authored it.
     var isOutgoing: Bool {

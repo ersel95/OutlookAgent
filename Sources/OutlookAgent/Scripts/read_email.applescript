@@ -75,7 +75,19 @@ on run argv
 
 		set imgPaths to my dumpImageAttachments(m, mId as string)
 
-		set raw to (mId as string) & fs & isRead & fs & d & fs & fromName & fs & fromAddr & fs & toList & fs & ccList & fs & subj & fs & body & fs & hasAttach & fs & attachNames & fs & convId & fs & imgPaths
+		set mAcctId to ""
+		set mAcctName to ""
+		try
+			set mAcct to account of m
+			try
+				set mAcctId to (id of mAcct) as string
+			end try
+			try
+				set mAcctName to (name of mAcct) as string
+			end try
+		end try
+
+		set raw to (mId as string) & fs & isRead & fs & d & fs & fromName & fs & fromAddr & fs & toList & fs & ccList & fs & subj & fs & body & fs & hasAttach & fs & attachNames & fs & convId & fs & imgPaths & fs & mAcctId & fs & mAcctName
 	end tell
 
 	set encoded to do shell script "printf %s " & quoted form of raw & " | base64"

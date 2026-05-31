@@ -8,6 +8,12 @@ final class AppViewModel {
     // Navigation
     var currentFeature: AppFeature = .inbox
 
+    // Accounts (multi-account)
+    var accountStore = AccountStore()
+    /// nil → "Tüm hesaplar" (birleşik view); non-nil → o account'a filtrelenmiş.
+    var accountFilter: String?
+    var isLoadingAccounts: Bool = false
+
     // Inbox state
     var emails: [EmailSummary] = []
     var triageStore = TriageStore()
@@ -156,6 +162,36 @@ final class AppViewModel {
     private let outlook = OutlookService.shared
     private let claude  = ClaudeService.shared
 
+    // MARK: - Accounts
+
+    /// Outlook'tan hesapları yenile, store'a merge et. Hata olursa errorMessage'a
+    /// yaz ama mevcut store korunur (cache'lenmiş hesaplarla devam edilir).
+    func refreshAccounts() async {
+        isLoadingAccounts = true
+        defer { isLoadingAccounts = false }
+        do {
+            let discovered = try await outlook.listAccounts()
+            accountStore.mergeDiscovered(discovered)
+            // Eski seçili filtre artık enabled hesaplar arasında yoksa düşür.
+            if let f = accountFilter,
+               !accountStore.enabledAccounts.contains(where: { $0.id == f }) {
+                accountFilter = nil
+            }
+        } catch {
+            // Hesap discovery sessiz bir özellik — UI'ı bloklamayalım.
+            AppLogger.bg(.warn, .appleScript, "list_accounts hata", [
+                "error": .string(error.localizedDescription)
+            ])
+        }
+    }
+
+    /// AccountFilter değişimi → inbox + calendar yeniden çek.
+    func setAccountFilter(_ id: String?) async {
+        accountFilter = id
+        await refreshInbox()
+        await refreshCalendar()
+    }
+
     // MARK: - Inbox
 
     func refreshInbox() async {
@@ -163,7 +199,11 @@ final class AppViewModel {
         errorMessage = nil
         let limit = inboxLimit
         do {
-            let list = try await outlook.listInbox(limit: limit, unreadOnly: false)
+            // Inbox çekimini hesap filtre seçildiyse Outlook tarafında dar tut;
+            // değilse global inbox (her record kendi accountId'sini taşır).
+            let list = try await outlook.listInbox(limit: limit,
+                                                   unreadOnly: false,
+                                                   accountId: accountFilter)
             emails = list
             isLoadingInbox = false
             // auto-triage in background — never blocks UI
@@ -211,6 +251,9 @@ final class AppViewModel {
         }
         if let cat = categoryFilter {
             out = out.filter { triageMap[$0.id]?.category == cat }
+        }
+        if let acct = accountFilter {
+            out = out.filter { ($0.accountId ?? "") == acct }
         }
         return out
     }
@@ -532,6 +575,11 @@ final class AppViewModel {
         }
         if let s = calendarStageFilter {
             out = out.filter { $0.pipelineStage == s }
+        }
+        if let acct = accountFilter {
+            // Calendar events bazen account ile bağlantılı gelmez; account
+            // alanı boş olanları "Tümü"ne dahil sayma, gizle.
+            out = out.filter { ($0.accountId ?? "") == acct }
         }
         let q = calendarSearchQuery.trimmingCharacters(in: .whitespaces).lowercased()
         if !q.isEmpty {

@@ -37,10 +37,13 @@ actor OutlookService {
 
     // MARK: - Public API
 
-    func listInbox(limit: Int = 30, unreadOnly: Bool = false) async throws -> [EmailSummary] {
+    func listInbox(limit: Int = 30,
+                   unreadOnly: Bool = false,
+                   accountId: String? = nil) async throws -> [EmailSummary] {
+        let acctArg = (accountId?.isEmpty == false) ? accountId! : ""
         let raw = try runScript(
             name: "list_inbox",
-            args: [String(limit), unreadOnly ? "true" : "false"]
+            args: [String(limit), unreadOnly ? "true" : "false", acctArg]
         )
         let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
         if trimmed == "OA_EMPTY_INBOX" {
@@ -52,6 +55,50 @@ actor OutlookService {
             throw OutlookError.parseFailed("base64 decode failed")
         }
         return parseInboxPayload(payload)
+    }
+
+    /// Outlook'un tanımlı tüm hesaplarını döner (exchange + imap + pop).
+    /// Sonuç MailAccount.id Outlook'un kendi id'siyle eşleşir.
+    func listAccounts() async throws -> [MailAccount] {
+        let raw = try runScript(name: "list_accounts", args: [])
+        let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmed.isEmpty { return [] }
+        guard let data = Data(base64Encoded: trimmed),
+              let payload = String(data: data, encoding: .utf8) else {
+            throw OutlookError.parseFailed("accounts base64 decode failed")
+        }
+        return Self.parseAccountsPayload(payload, fs: fs, rs: rs)
+    }
+
+    nonisolated static func parseAccountsPayload(_ payload: String, fs: Character, rs: Character) -> [MailAccount] {
+        let records = payload.split(separator: rs, omittingEmptySubsequences: true)
+        var out: [MailAccount] = []
+        for rec in records {
+            let f = rec.split(separator: fs, omittingEmptySubsequences: false).map(String.init)
+            guard f.count >= 4 else { continue }
+            let typeRaw = f[1].lowercased()
+            let type: MailAccount.AccountType
+            switch typeRaw {
+            case "exchange": type = .exchange
+            case "imap":     type = .imap
+            case "pop":      type = .pop
+            default:         type = .other
+            }
+            let name = f[2]
+            let email = f[3]
+            out.append(MailAccount(
+                id: f[0],
+                displayName: name.isEmpty ? email : name,
+                emailAddress: email,
+                accountType: type,
+                outlookAccountName: name,
+                colorHex: nil,
+                isEnabled: true,
+                isDefault: false,
+                lastSeenAt: Date()
+            ))
+        }
+        return out
     }
 
     func readEmail(id: String) async throws -> EmailFull {
@@ -66,6 +113,8 @@ actor OutlookService {
         }
         let convId: String? = (fields.count >= 12 && !fields[11].isEmpty) ? fields[11] : nil
         let paths = fields.count >= 13 ? Self.parseAttachmentPaths(fields[12]) : [:]
+        let acctId: String? = (fields.count >= 14 && !fields[13].isEmpty) ? fields[13] : nil
+        let acctName: String? = (fields.count >= 15 && !fields[14].isEmpty) ? fields[14] : nil
         return EmailFull(
             id: fields[0],
             isRead: fields[1].lowercased() == "true",
@@ -79,7 +128,9 @@ actor OutlookService {
             hasAttachments: fields[9].lowercased() == "true",
             attachmentNames: fields[10].split(separator: ";").map(String.init).filter { !$0.isEmpty },
             conversationId: convId,
-            attachmentPaths: paths
+            attachmentPaths: paths,
+            accountId: acctId,
+            accountName: acctName
         )
     }
 
@@ -114,6 +165,8 @@ actor OutlookService {
             let f = rec.split(separator: fs, omittingEmptySubsequences: false).map(String.init)
             guard f.count >= 12 else { continue }
             let paths = f.count >= 13 ? Self.parseAttachmentPaths(f[12]) : [:]
+            let acctId: String? = (f.count >= 14 && !f[13].isEmpty) ? f[13] : nil
+            let acctName: String? = (f.count >= 15 && !f[14].isEmpty) ? f[14] : nil
             let msg = ThreadMessage(
                 id: f[0],
                 folder: f[1],
@@ -128,7 +181,9 @@ actor OutlookService {
                 isRead: f[9].lowercased() == "true",
                 hasAttachments: f[10].lowercased() == "true",
                 attachmentNames: f[11].split(separator: ";").map(String.init).filter { !$0.isEmpty },
-                attachmentPaths: paths
+                attachmentPaths: paths,
+                accountId: acctId,
+                accountName: acctName
             )
             out.append(msg)
         }
@@ -160,7 +215,8 @@ actor OutlookService {
     func sendEmail(subject: String,
                    body: String,
                    to: [String],
-                   cc: [String] = []) async throws -> String {
+                   cc: [String] = [],
+                   fromAccountId: String? = nil) async throws -> String {
         let subjFile = FileManager.default.temporaryDirectory
             .appendingPathComponent("oa-subj-\(UUID().uuidString).txt")
         try subject.write(to: subjFile, atomically: true, encoding: .utf8)
@@ -173,8 +229,9 @@ actor OutlookService {
 
         let toArg = to.joined(separator: ";")
         let ccArg = cc.joined(separator: ";")
+        let fromArg = fromAccountId ?? ""
         let raw = try runScript(name: "send_email",
-                                args: [subjFile.path, bodyFile.path, toArg, ccArg])
+                                args: [subjFile.path, bodyFile.path, toArg, ccArg, fromArg])
         return raw.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
@@ -228,7 +285,7 @@ actor OutlookService {
         out.reserveCapacity(records.count)
         for rec in records {
             let f = rec.split(separator: fs, omittingEmptySubsequences: false).map(String.init)
-            // 15 fields expected
+            // 15 base fields + 2 optional account fields
             guard f.count >= 15 else { continue }
             let req = parseAttendeeBlob(f[9])
             let opt = parseAttendeeBlob(f[10])
@@ -236,6 +293,8 @@ actor OutlookService {
             let resp = CalendarEvent.ResponseStatus(rawValue: respRaw) ?? .none
             let body = f[12]
             let (confUrl, confType) = extractConference(from: body, location: f[6])
+            let acctId: String? = (f.count >= 16 && !f[15].isEmpty) ? f[15] : nil
+            let acctName: String? = (f.count >= 17 && !f[16].isEmpty) ? f[16] : nil
             let event = CalendarEvent(
                 id: f[0],
                 calendarName: f[1],
@@ -256,7 +315,9 @@ actor OutlookService {
                 conferenceType: confType,
                 pipelineStage: nil,
                 pipelineConfidence: nil,
-                primaryDomain: nil
+                primaryDomain: nil,
+                accountId: acctId,
+                accountName: acctName
             )
             out.append(event)
         }
@@ -316,6 +377,8 @@ actor OutlookService {
         for rec in records {
             let fields = rec.split(separator: fs, omittingEmptySubsequences: false).map(String.init)
             guard fields.count >= 8 else { continue }
+            let acctId: String? = (fields.count >= 9 && !fields[8].isEmpty) ? fields[8] : nil
+            let acctName: String? = (fields.count >= 10 && !fields[9].isEmpty) ? fields[9] : nil
             out.append(EmailSummary(
                 id: fields[0],
                 isRead: fields[1].lowercased() == "true",
@@ -324,7 +387,9 @@ actor OutlookService {
                 fromAddress: fields[4],
                 subject: fields[5],
                 preview: fields[6],
-                hasAttachments: fields[7].lowercased() == "true"
+                hasAttachments: fields[7].lowercased() == "true",
+                accountId: acctId,
+                accountName: acctName
             ))
         }
         return out

@@ -19,6 +19,10 @@ struct OutlookAgentApp: App {
                     if !aiConfig.isActiveProviderConfigured {
                         showOnboarding = true
                     }
+                    // Hesap keşfi inbox/calendar'dan ÖNCE; record'lara accountId
+                    // taglemek ve UI'da filter chip'i göstermek için store
+                    // hazır olmalı.
+                    await vm.refreshAccounts()
                     await vm.refreshInbox()
                     await vm.refreshCalendar()
                 }
@@ -63,6 +67,7 @@ struct OutlookAgentApp: App {
         // macOS native Settings scene (⌘,)
         Settings {
             SettingsView()
+                .environment(vm)
         }
     }
 }

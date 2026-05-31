@@ -552,7 +552,8 @@ extension AppViewModel {
             let msgId = try await OutlookService.shared.sendEmail(
                 subject: subject,
                 body: body,
-                to: [p.contact.email]
+                to: [p.contact.email],
+                fromAccountId: accountStore.defaultAccount?.id
             )
             prospectStore.updateStep(prospectId: p.id, stepId: step.id) { s in
                 s.status = .sent

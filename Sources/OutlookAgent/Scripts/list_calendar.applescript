@@ -31,6 +31,18 @@ on run argv
 			try
 				set calName to name of c
 			end try
+			-- Calendar → owning account (best-effort; bazı versiyonlarda yok)
+			set calAcctId to ""
+			set calAcctName to ""
+			try
+				set calAcct to account of c
+				try
+					set calAcctId to (id of calAcct) as string
+				end try
+				try
+					set calAcctName to (name of calAcct) as string
+				end try
+			end try
 			set hits to {}
 			try
 				set hits to (every calendar event of c whose start time ≥ startD and start time ≤ endD)
@@ -116,8 +128,27 @@ on run argv
 						set orgName to my zap(orgName, fs, " ")
 						set calName to my zap(calName, rs, " ")
 						set calName to my zap(calName, fs, " ")
+						set calAcctName to my zap(calAcctName, rs, " ")
+						set calAcctName to my zap(calAcctName, fs, " ")
 
-						set raw to raw & evId & fs & calName & fs & evSubj & fs & evStart & fs & evEnd & fs & evAllDay & fs & evLoc & fs & orgName & fs & orgAddr & fs & reqList & fs & optList & fs & ownResp & fs & evBody & fs & evHasReminder & fs & evRecurring & rs
+						-- Event-level account (yedek, calendar verisi boşsa)
+						set evAcctId to calAcctId
+						set evAcctName to calAcctName
+						if evAcctId is "" then
+							try
+								set evAcct to account of e
+								try
+									set evAcctId to (id of evAcct) as string
+								end try
+								try
+									set evAcctName to (name of evAcct) as string
+								end try
+							end try
+						end if
+						set evAcctName to my zap(evAcctName, rs, " ")
+						set evAcctName to my zap(evAcctName, fs, " ")
+
+						set raw to raw & evId & fs & calName & fs & evSubj & fs & evStart & fs & evEnd & fs & evAllDay & fs & evLoc & fs & orgName & fs & orgAddr & fs & reqList & fs & optList & fs & ownResp & fs & evBody & fs & evHasReminder & fs & evRecurring & fs & evAcctId & fs & evAcctName & rs
 					end if
 				end try
 			end repeat
