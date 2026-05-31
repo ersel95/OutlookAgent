@@ -340,7 +340,11 @@ actor OutlookService {
     }()
 
     private func runScript(name: String, args: [String]) throws -> String {
-        guard let url = Bundle.module.url(forResource: name, withExtension: "applescript") else {
+        // SPM Bundle.module accessor macOS .app Contents/ yapisini bilmedigi icin
+        // bundle'i Bundle.main altinda Scripts/ subdirectory'sinden okuyoruz.
+        // build.sh AppleScript dosyalarini direkt Contents/Resources/Scripts/'e koyuyor.
+        guard let url = Bundle.main.url(forResource: name, withExtension: "applescript", subdirectory: "Scripts")
+            ?? Bundle.module.url(forResource: name, withExtension: "applescript") else {
             AppLogger.bg(.error, .appleScript, "script bulunamadı", ["script": .string(name)])
             throw OutlookError.scriptMissing(name)
         }

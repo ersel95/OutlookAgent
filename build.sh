@@ -42,12 +42,17 @@ cp "$BUILD_DIR/$APP_NAME" "$CONTENTS/MacOS/$APP_NAME.new"
 mv -f "$CONTENTS/MacOS/$APP_NAME.new" "$CONTENTS/MacOS/$APP_NAME"
 chmod +x "$CONTENTS/MacOS/$APP_NAME"
 
-# Refresh resource bundle (AppleScripts may have changed)
+# AppleScript dosyalarini Contents/Resources/Scripts/'e direkt kopyala. SPM
+# Bundle.module accessor macOS .app Contents/ yapisini bilmiyor; OutlookService
+# once Bundle.main subdirectory:"Scripts" path'inden okuyor (codesign-safe).
+# Eski lokasyonlari temizle.
 rm -rf "$CONTENTS/Resources/${APP_NAME}_${APP_NAME}.bundle"
+rm -rf "$APP_DIR/${APP_NAME}_${APP_NAME}.bundle"
+rm -rf "$CONTENTS/Resources/Scripts"
 
-# Resource bundle (contains AppleScript files for Bundle.module to find)
-if [ -d "$BUILD_DIR/${APP_NAME}_${APP_NAME}.bundle" ]; then
-    cp -R "$BUILD_DIR/${APP_NAME}_${APP_NAME}.bundle" "$CONTENTS/Resources/"
+if [ -d "Sources/OutlookAgent/Scripts" ]; then
+    mkdir -p "$CONTENTS/Resources/Scripts"
+    cp Sources/OutlookAgent/Scripts/*.applescript "$CONTENTS/Resources/Scripts/"
 fi
 
 # Sparkle.framework embed. SPM çekiyor ama otomatik bundle'a koymuyor —
