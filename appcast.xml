@@ -5,10 +5,10 @@
     <link>https://github.com/ersel95/OutlookAgent</link>
     <description>OutlookAgent updates</description>
     <item>
-      <title>OutlookAgent 0.3.2</title>
-      <pubDate>Sun, 31 May 2026 21:56:02 +0000</pubDate>
-      <sparkle:version>0.3.2</sparkle:version>
-      <sparkle:shortVersionString>0.3.2</sparkle:shortVersionString>
+      <title>OutlookAgent 0.3.3</title>
+      <pubDate>Sun, 31 May 2026 22:05:31 +0000</pubDate>
+      <sparkle:version>0.3.3</sparkle:version>
+      <sparkle:shortVersionString>0.3.3</sparkle:shortVersionString>
       <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
       <description><![CDATA[<style>:root { color-scheme: light dark; }
 body {
@@ -38,12 +38,55 @@ hr { border: 0; border-top: 1px solid rgba(127,127,127,0.3); margin: 0.8em 0; }
   a { color: #5eaeff; }
 }
 </style>
-<h2>v0.3.2 — 1 Haziran 2026</h2>
+<h2>v0.3.3 — 1 Haziran 2026</h2>
 <h3>Düzeltmeler</h3>
 <ul>
-<li>HTML mail gövdesindeki <code>&lt;_blank&gt;</code> token&#x27;ı (Outlook&#x27;un <code>target=&quot;_blank&quot;</code> attribute&#x27;ünü plain-text&#x27;e dökerken bıraktığı kalıntı) artık siliniyor. <code>&lt;o:p&gt;</code>, <code>&lt;msoxxx&gt;</code> gibi Office-spesifik tag artıkları da kapsam içinde.</li>
-<li>Strip işlemi öncesi zero-width space / BOM karakterleri temizleniyor — regex&#x27;in kelime sınırını bozan görünmez karakterler tetikleyici olmuyor.</li>
+<li>Inbox listesinde mail satırının altındaki <strong>preview</strong> ve <strong>subject</strong> alanları da artık HTML/CSS artefact temizlemeden geçiyor. Önceki sürümde yalnızca tam mail gövdesi temizleniyordu; liste satırında <code>&lt;_blank&gt;</code> gibi token&#x27;lar görünmeye devam ediyordu.</li>
+<li>Thread görünümünde her mesajın subject&#x27;i de aynı temizlikten geçer (defansif).</li>
 </ul>]]></description>
+      <sparkle:releaseNotesLink>https://github.com/ersel95/OutlookAgent/releases/tag/v0.3.3</sparkle:releaseNotesLink>
+      <enclosure url="https://github.com/ersel95/OutlookAgent/releases/download/v0.3.3/OutlookAgent-0.3.3.dmg" length="3549173" type="application/octet-stream" sparkle:edSignature="9PU9sbVgvRiwZ8M5KTF7iY74icYaG1UbBGTqGaKhUglajabIcHdBEziRanpVT2PWTcw9MLLN802oE4pEuHHMAg==" />
+    </item>
+    <item>
+      <title>OutlookAgent 0.3.2</title>
+      <pubDate>Sun, 31 May 2026 21:56:02 +0000</pubDate>
+      <sparkle:version>0.3.2</sparkle:version>
+      <sparkle:shortVersionString>0.3.2</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+      <description>&lt;style&gt;:root { color-scheme: light dark; }
+body {
+  font: 13px -apple-system, system-ui, BlinkMacSystemFont, "Helvetica Neue", sans-serif;
+  margin: 0; padding: 10px 14px; line-height: 1.45;
+}
+h1, h2, h3, h4 { margin: 0.7em 0 0.3em; font-weight: 600; }
+h1 { font-size: 1.25em; }
+h2 { font-size: 1.10em; }
+h3 { font-size: 1.00em; opacity: 0.85; }
+p { margin: 0.35em 0; }
+ul, ol { padding-left: 1.3em; margin: 0.3em 0; }
+li { margin: 0.12em 0; }
+code {
+  background: rgba(127,127,127,0.18); padding: 0 4px; border-radius: 3px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.92em;
+}
+pre {
+  background: rgba(127,127,127,0.14); padding: 8px 10px; border-radius: 5px;
+  overflow-x: auto; font-size: 0.88em;
+}
+pre code { background: transparent; padding: 0; }
+a { color: #0a66e6; text-decoration: none; }
+a:hover { text-decoration: underline; }
+hr { border: 0; border-top: 1px solid rgba(127,127,127,0.3); margin: 0.8em 0; }
+@media (prefers-color-scheme: dark) {
+  a { color: #5eaeff; }
+}
+&lt;/style&gt;
+&lt;h2&gt;v0.3.2 — 1 Haziran 2026&lt;/h2&gt;
+&lt;h3&gt;Düzeltmeler&lt;/h3&gt;
+&lt;ul&gt;
+&lt;li&gt;HTML mail gövdesindeki &lt;code&gt;&amp;lt;_blank&amp;gt;&lt;/code&gt; token&amp;#x27;ı (Outlook&amp;#x27;un &lt;code&gt;target=&amp;quot;_blank&amp;quot;&lt;/code&gt; attribute&amp;#x27;ünü plain-text&amp;#x27;e dökerken bıraktığı kalıntı) artık siliniyor. &lt;code&gt;&amp;lt;o:p&amp;gt;&lt;/code&gt;, &lt;code&gt;&amp;lt;msoxxx&amp;gt;&lt;/code&gt; gibi Office-spesifik tag artıkları da kapsam içinde.&lt;/li&gt;
+&lt;li&gt;Strip işlemi öncesi zero-width space / BOM karakterleri temizleniyor — regex&amp;#x27;in kelime sınırını bozan görünmez karakterler tetikleyici olmuyor.&lt;/li&gt;
+&lt;/ul&gt;</description>
       <sparkle:releaseNotesLink>https://github.com/ersel95/OutlookAgent/releases/tag/v0.3.2</sparkle:releaseNotesLink>
       <enclosure url="https://github.com/ersel95/OutlookAgent/releases/download/v0.3.2/OutlookAgent-0.3.2.dmg" length="3548344" type="application/octet-stream" sparkle:edSignature="JLLr8h8r/JFOJ2Mve8hKyu0N4ZPbyhcE1tCzGlcG/tWls/7unFFuoYL7IDVQkQl9eAw+0Z8vkKuxMI7Bd1toAg==" />
     </item>
