@@ -79,7 +79,12 @@ enum EmailBodyParser {
         sourceMessageId: String?,
         sourceFolder: String?
     ) -> [EmailSegment] {
-        let normalized = rawBody.replacingOccurrences(of: "\r\n", with: "\n")
+        // HTML/CSS residue (örn. Outlook'un plain-text render'ı sızdırdığı
+        // `<font-size:14px;...>` veya `<blank>` placeholder'ları) segment
+        // bölmeden önce temizlenir — AI prompt ve dedupeKey de bu temiz hâlden
+        // beslenir.
+        let stripped = BodyFormatter.stripHTMLResidue(rawBody)
+        let normalized = stripped.replacingOccurrences(of: "\r\n", with: "\n")
         let lines = normalized.components(separatedBy: "\n")
 
         var segments: [EmailSegment] = []

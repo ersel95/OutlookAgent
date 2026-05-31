@@ -41,6 +41,10 @@ enum BodyFormatter {
             range: NSRange(s.startIndex..., in: s),
             withTemplate: "$1"
         )
+        // Strip HTML/CSS residue from poorly-rendered HTML emails (Outlook's
+        // plain-text rendering occasionally leaves angle-bracketed style
+        // attributes or template placeholders behind).
+        s = stripHTMLResidue(s)
         // Strip "mailto:" prefix from bare-text emails (we still detect them as links)
         s = s.replacingOccurrences(of: "mailto:", with: "", options: .caseInsensitive)
 
@@ -57,6 +61,45 @@ enum BodyFormatter {
             withTemplate: "\n\n"
         )
         return s.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    // MARK: - HTML residue
+
+    /// Outlook'un `plain text content` çıktısı, kötü yapılı HTML mail'lerde bazen
+    /// `<font-size:14px; font-family:...; display:block>` veya `<blank>` gibi
+    /// markup parçalarını strip etmeden bırakır. Buradaki regex'ler:
+    ///   1) `<blank>`, `<empty>`, `<preheader>` placeholder token'larını siler
+    ///   2) İçinde CSS keyword'leri (font-, color:, style=, display:, ...) geçen
+    ///      `<...>` bloklarını siler — gerçek inline link `<https://...>` veya
+    ///      `<email@x>` zaten daha önce `bracketURL` ile unwrap edilmiştir.
+    static func stripHTMLResidue(_ raw: String) -> String {
+        var s = raw
+
+        // Placeholder tokens that surface from preheader / template stubs.
+        let placeholderRegex = try! NSRegularExpression(
+            pattern: #"<\s*(?:blank|empty|preheader|preview|spacer)\s*>"#,
+            options: [.caseInsensitive])
+        s = placeholderRegex.stringByReplacingMatches(
+            in: s, range: NSRange(s.startIndex..., in: s), withTemplate: " ")
+
+        // Angle-bracketed blob that looks like leaked inline-style or CSS — i.e.
+        // a `<...>` chunk (no nested angle, max ~600 chars) whose interior
+        // contains at least one CSS/style keyword. Conservative: requires the
+        // CSS hint so we don't eat legitimate user content like `<3` or
+        // `<not-a-tag>`. Multiline-aware (some bodies wrap mid-attribute).
+        let cssBlobRegex = try! NSRegularExpression(
+            pattern: #"<[^<>]{0,600}?(?:font-(?:size|family|weight|style)|color\s*:|background(?:-color)?\s*:|style\s*=|width\s*:|height\s*:|margin(?:-[a-z]+)?\s*:|padding(?:-[a-z]+)?\s*:|border(?:-[a-z]+)?\s*:|display\s*:|text-decoration|line-height|letter-spacing|vertical-align)[^<>]{0,600}?>"#,
+            options: [.caseInsensitive, .dotMatchesLineSeparators])
+        s = cssBlobRegex.stringByReplacingMatches(
+            in: s, range: NSRange(s.startIndex..., in: s), withTemplate: " ")
+
+        // After stripping, multiple spaces around the cut point can pile up.
+        let multiSpace = try! NSRegularExpression(
+            pattern: #"[ \t]{2,}"#, options: [])
+        s = multiSpace.stringByReplacingMatches(
+            in: s, range: NSRange(s.startIndex..., in: s), withTemplate: " ")
+
+        return s
     }
 
     // MARK: - Markdown (bold + italic)
