@@ -19,7 +19,13 @@ let package = Package(
                 .product(name: "Sparkle", package: "Sparkle"),
             ],
             path: "Sources/OutlookAgent",
-            resources: [.process("Scripts")]
+            resources: [.process("Scripts")],
+            linkerSettings: [
+                // SPM default rpath'i sadece @executable_path; Sparkle.framework
+                // Contents/Frameworks/'te oldugu icin @executable_path/../Frameworks
+                // gerekiyor (yoksa dyld bulamaz → SIGABRT at launch).
+                .unsafeFlags(["-Xlinker", "-rpath", "-Xlinker", "@executable_path/../Frameworks"])
+            ]
         )
     ],
     swiftLanguageVersions: [.v5]
