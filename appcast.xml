@@ -5,6 +5,15 @@
     <link>https://github.com/ersel95/OutlookAgent</link>
     <description>OutlookAgent updates</description>
     <item>
+      <title>OutlookAgent 0.1.6</title>
+      <pubDate>Sun, 31 May 2026 12:41:06 +0000</pubDate>
+      <sparkle:version>0.1.6</sparkle:version>
+      <sparkle:shortVersionString>0.1.6</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+      <sparkle:releaseNotesLink>https://github.com/ersel95/OutlookAgent/releases/tag/v0.1.6</sparkle:releaseNotesLink>
+      <enclosure url="https://github.com/ersel95/OutlookAgent/releases/download/v0.1.6/OutlookAgent-0.1.6.dmg" length="3317221" type="application/octet-stream" sparkle:edSignature="kPA/GOuhd/Z39ouu670EQOCpLuA0zJswQcfYsnx6rYf0uugjB+s6rtP4Q4PJI21xRzCU1YnNroICK6CYrDzUAA==" />
+    </item>
+    <item>
       <title>OutlookAgent 0.1.5</title>
       <pubDate>Sun, 31 May 2026 12:21:11 +0000</pubDate>
       <sparkle:version>0.1.5</sparkle:version>
