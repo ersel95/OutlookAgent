@@ -73,11 +73,22 @@ enum BodyFormatter {
     ///      `<...>` bloklarını siler — gerçek inline link `<https://...>` veya
     ///      `<email@x>` zaten daha önce `bracketURL` ile unwrap edilmiştir.
     static func stripHTMLResidue(_ raw: String) -> String {
-        var s = raw
+        // Zero-width / BOM karakterleri önce sil — regex'in `\s` veya isim
+        // sınırını bozmalarını engeller.
+        var s = raw.replacingOccurrences(of: "\u{200B}", with: "")
+            .replacingOccurrences(of: "\u{200C}", with: "")  // ZWNJ
+            .replacingOccurrences(of: "\u{200D}", with: "")  // ZWJ
+            .replacingOccurrences(of: "\u{FEFF}", with: "")  // BOM
 
-        // Placeholder tokens that surface from preheader / template stubs.
+        // Placeholder / template token leakage'ı. Outlook'un HTML→plain text
+        // rendering'i bazen `target="_blank"` attribute değerini `<_blank>`
+        // olarak (veya `<blank>`, `<o:p>`, `<preheader ...>` gibi varyantlarla)
+        // bırakır. Bu yüzden:
+        //   - opsiyonel underscore/colon/dash prefix
+        //   - opsiyonel attribute kuyruğu (` href="..."` vb.)
+        // hepsi tek pattern'de kapsanır.
         let placeholderRegex = try! NSRegularExpression(
-            pattern: #"<\s*(?:blank|empty|preheader|preview|spacer)\s*>"#,
+            pattern: #"<\s*[_:\-]?\s*(?:blank|empty|preheader|preview|spacer|o:p|mso[^\s>]*)\b[^<>]{0,200}>"#,
             options: [.caseInsensitive])
         s = placeholderRegex.stringByReplacingMatches(
             in: s, range: NSRange(s.startIndex..., in: s), withTemplate: " ")
