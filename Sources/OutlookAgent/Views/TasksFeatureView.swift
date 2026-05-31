@@ -363,6 +363,7 @@ private struct TaskDetailEditor: View {
         }
     }
 
+    @MainActor
     private func commit() {
         var t = task
         t.title = title

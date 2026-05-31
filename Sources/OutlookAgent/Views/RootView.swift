@@ -84,6 +84,7 @@ private struct FeatureSidebar: View {
         }
     }
 
+    @MainActor
     private func badge(for feature: AppFeature) -> String? {
         switch feature {
         case .inbox:
