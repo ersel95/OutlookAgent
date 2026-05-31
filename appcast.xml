@@ -10,6 +10,51 @@
       <sparkle:version>0.3.1</sparkle:version>
       <sparkle:shortVersionString>0.3.1</sparkle:shortVersionString>
       <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+      <description><![CDATA[<style>:root { color-scheme: light dark; }
+body {
+  font: 13px -apple-system, system-ui, BlinkMacSystemFont, "Helvetica Neue", sans-serif;
+  margin: 0; padding: 10px 14px; line-height: 1.45;
+}
+h1, h2, h3, h4 { margin: 0.7em 0 0.3em; font-weight: 600; }
+h1 { font-size: 1.25em; }
+h2 { font-size: 1.10em; }
+h3 { font-size: 1.00em; opacity: 0.85; }
+p { margin: 0.35em 0; }
+ul, ol { padding-left: 1.3em; margin: 0.3em 0; }
+li { margin: 0.12em 0; }
+code {
+  background: rgba(127,127,127,0.18); padding: 0 4px; border-radius: 3px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.92em;
+}
+pre {
+  background: rgba(127,127,127,0.14); padding: 8px 10px; border-radius: 5px;
+  overflow-x: auto; font-size: 0.88em;
+}
+pre code { background: transparent; padding: 0; }
+a { color: #0a66e6; text-decoration: none; }
+a:hover { text-decoration: underline; }
+hr { border: 0; border-top: 1px solid rgba(127,127,127,0.3); margin: 0.8em 0; }
+@media (prefers-color-scheme: dark) {
+  a { color: #5eaeff; }
+}
+</style>
+<h2>v0.3.1 — 31 Mayıs 2026</h2>
+<h3>Çoklu hesap desteği</h3>
+<ul>
+<li>Outlook&#x27;ta tanımlı tüm hesaplar (Exchange, IMAP, POP) otomatik keşfedilir.</li>
+<li>Inbox ve Takvim&#x27;in üstünde <strong>hesap filtre çubuğu</strong> — &quot;Tümü&quot; + her hesap için renkli chip.</li>
+<li>Ayarlar → <strong>Hesaplar</strong> sekmesi: görünen ad, renk, varsayılan ve aktif/pasif tek bir yerden yönetilir.</li>
+<li>Outbound mailler (prospect sequence dahil) varsayılan hesaptan gider; yanıtlar orijinalin hesabından.</li>
+<li>&quot;Hesap Ekle&quot; Outlook&#x27;u öne getirip adım adım talimat gösterir.</li>
+</ul>
+<h3>Düzeltmeler</h3>
+<ul>
+<li>Mail gövdesinde sızan <code>&lt;font-size:...; display:block&gt;</code> ve <code>&lt;blank&gt;</code> gibi HTML/CSS artefact&#x27;ları artık temizleniyor (Evisort gibi otomatik bildirim mail&#x27;lerinde sık görülüyordu).</li>
+</ul>
+<h3>Güncelleme penceresi</h3>
+<ul>
+<li>&quot;Güncellemeleri Denetle&quot; pencereleri artık her sürüm için özelleştirilebilir release notu gösteriyor.</li>
+</ul>]]></description>
       <sparkle:releaseNotesLink>https://github.com/ersel95/OutlookAgent/releases/tag/v0.3.1</sparkle:releaseNotesLink>
       <enclosure url="https://github.com/ersel95/OutlookAgent/releases/download/v0.3.1/OutlookAgent-0.3.1.dmg" length="3551196" type="application/octet-stream" sparkle:edSignature="5YqbNSox8doI2LeEe4KQk17NX4z30LELsXYOi8r9r7giLPPuQ7MVxRQaJrzuZyNUyx48Qv1Fi7K5iDV7s0kzBg==" />
     </item>

@@ -91,9 +91,16 @@ jobs:
           # main'e geç. Bu, app'in poll ettiği feed.
           git fetch origin main
           git checkout main
+          # RELEASES/v{VERSION}.md varsa Markdown'ı inline HTML olarak embed et.
+          # Yoksa update_appcast.py default fallback (releaseNotesLink → GH tag) kullanır.
+          NOTES_ARG=()
+          if [ -f "RELEASES/v$VERSION.md" ]; then
+            NOTES_ARG=(--notes-md "RELEASES/v$VERSION.md")
+          fi
           python3 scripts/update_appcast.py \
             --version "$VERSION" --url "$DMG_URL" --length "$LEN" --signature "$SIG" \
-            --notes-url "https://github.com/${{ github.repository }}/releases/tag/v$VERSION"
+            --notes-url "https://github.com/${{ github.repository }}/releases/tag/v$VERSION" \
+            "${NOTES_ARG[@]}"
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add appcast.xml
