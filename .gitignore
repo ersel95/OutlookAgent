@@ -24,3 +24,7 @@ dist/
 sparkle-tools/
 sparkle.tar.xz
 OutlookAgent.app/
+
+# Hassas: Salesforce gercek musteri verisi (~6MB) ve strategy dokumanlari
+data/
+strategy/
